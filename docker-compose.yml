@@ -1,0 +1,36 @@
+# Local development services only. Never used in production.
+# Credentials below are local-only placeholders for a throwaway container.
+services:
+    mysql:
+        image: mysql:8.4
+        environment:
+            MYSQL_DATABASE: calendar_lead_info
+            MYSQL_USER: calendar
+            MYSQL_PASSWORD: calendar
+            MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+        ports:
+            # Host 3307: 3306 is commonly taken by a host MySQL install.
+            - '127.0.0.1:3307:3306'
+        volumes:
+            - mysql-data:/var/lib/mysql
+            - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '--silent']
+            interval: 5s
+            timeout: 5s
+            retries: 20
+            start_period: 20s
+
+    mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+            - '127.0.0.1:1025:1025' # SMTP
+            - '127.0.0.1:8025:8025' # Web UI
+        healthcheck:
+            test: ['CMD', '/mailpit', 'readyz']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+volumes:
+    mysql-data:

@@ -29,3 +29,16 @@ Homestead.json
 .env.production
 .phpactor.json
 auth.json
+
+# Merged from the Laravel 13 skeleton .gitignore
+*.log
+.DS_Store
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.vscode
+/.zed
+/public/fonts-manifest.dev.json
+_ide_helper.php
+Thumbs.db

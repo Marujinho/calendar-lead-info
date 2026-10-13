@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [development, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Third-party actions are pinned to full commit SHAs (PRD §12 A03).
+# actions/checkout v7.0.1, shivammathur/setup-php 2.37.2.
+
+jobs:
+  pint:
+    name: Pint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: vendor/bin/pint --test
+
+  phpstan:
+    name: PHPStan (Larastan level 6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  tests:
+    name: PHPUnit (Unit + Integration)
+    runs-on: ubuntu-latest
+    services:
+      # Mirrors docker-compose.yml so .env.testing works unchanged (host port 3307).
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: calendar_lead_info_test
+          MYSQL_USER: calendar
+          MYSQL_PASSWORD: calendar
+          MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            php -r 'try { new PDO("mysql:host=127.0.0.1;port=3307;dbname=calendar_lead_info_test", "calendar", "calendar"); exit(0); } catch (Throwable $e) { exit(1); }' && exit 0
+            sleep 2
+          done
+          echo "MySQL did not become reachable" >&2
+          exit 1
+      - run: php artisan migrate --env=testing --force --no-interaction
+      - run: php artisan test --testsuite=Unit
+      - run: php artisan test --testsuite=Integration
+
+  audit:
+    name: Composer audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - run: composer validate --strict
+      - run: composer audit --locked --no-interaction
+
+  env-files:
+    name: No committed .env files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Fail if any .env* other than .env.example / .env.testing is tracked
+        run: |
+          offending=$(git ls-files | grep -E '(^|/)\.env' | grep -vxE '\.env\.example|\.env\.testing' || true)
+          if [ -n "$offending" ]; then
+            echo "Tracked env files are not allowed:" >&2
+            echo "$offending" >&2
+            exit 1
+          fi
