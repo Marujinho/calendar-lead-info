@@ -126,4 +126,26 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Application Queue Names
+    |--------------------------------------------------------------------------
+    |
+    | Each queue is drained by its own `queue:work --queue=<name>` process so
+    | a slow calendar sync can never delay digest sending. Code dispatches
+    | with config('queue.queues.<key>') and never hardcodes a queue name.
+    | Not env-driven on purpose: worker commands must match these names.
+    |
+    | sync        - calendar fetches (SyncRepWeek, BackfillRep)
+    | digest      - daily digest sending (SendDailyDigest)
+    | maintenance - retention purges (PurgeOldMeetings)
+    |
+    */
+
+    'queues' => [
+        'sync' => 'sync',
+        'digest' => 'digest',
+        'maintenance' => 'maintenance',
+    ],
+
 ];

@@ -15,6 +15,8 @@ return [
     |
     */
 
+    // Database store so scheduler onOneServer()/withoutOverlapping() locks
+    // work across servers without Redis.
     'default' => env('CACHE_STORE', 'database'),
 
     /*
