@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\User;
-
 return [
 
     /*
@@ -64,7 +62,8 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+            // No authenticatable model: this service has no HTTP or auth surface (PRD A07).
+            'model' => env('AUTH_MODEL'),
         ],
 
         // 'users' => [
