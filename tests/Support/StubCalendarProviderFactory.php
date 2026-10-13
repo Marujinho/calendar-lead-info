@@ -6,6 +6,7 @@ namespace Tests\Support;
 
 use App\Contracts\CalendarProvider;
 use App\Contracts\CalendarProviderFactory;
+use App\Data\Enums\CallPurpose;
 use App\Models\Tenant;
 
 /**
@@ -18,8 +19,13 @@ final class StubCalendarProviderFactory implements CalendarProviderFactory
     /** @var array<int, StubCalendarProvider> */
     private array $providers = [];
 
-    public function forTenant(Tenant $tenant): CalendarProvider
+    /** @var list<array{tenantId: int, purpose: CallPurpose}> */
+    public array $requests = [];
+
+    public function forTenant(Tenant $tenant, CallPurpose $purpose = CallPurpose::Sync): CalendarProvider
     {
+        $this->requests[] = ['tenantId' => (int) $tenant->getKey(), 'purpose' => $purpose];
+
         return $this->stubFor($tenant);
     }
 

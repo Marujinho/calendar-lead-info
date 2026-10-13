@@ -45,12 +45,13 @@ Two rules keep the 08:00 send safe from the provider:
 | Boundary | Where | Rule |
 |---|---|---|
 | Calendar source | `App\Contracts\CalendarProvider` | The only way meetings enter the system. `fetchWeek(repEmail, anyDayInWeek)` returns the ISO week containing that day. Implementations only fetch and map. |
-| Per-tenant construction | `App\Contracts\CalendarProviderFactory::forTenant()` | Chooses the implementation from `config('calendar.provider')`, injects that tenant's `ProviderCredentials`, and wraps the result in `MeteredCalendarProvider` (call logging to `provider_calls`, daily cap, outcome classification). Jobs resolve the factory, never a provider. |
+| Per-tenant construction | `App\Contracts\CalendarProviderFactory::forTenant(Tenant, CallPurpose)` | Chooses the implementation from `config('calendar.provider')`, injects that tenant's `ProviderCredentials`, and wraps the result in `MeteredCalendarProvider` (call logging to `provider_calls` with the given purpose, daily cap, outcome classification). Jobs resolve the factory, never a provider. |
 | DTO boundary | `App\Data\*` (`final readonly`) | Nothing past the provider sees raw arrays. Emails are normalised (trimmed, lower-cased) on construction so every comparison is case-insensitive. Statuses are enums in `App\Data\Enums`. |
 | Tenant isolation | `App\Tenancy\TenantContext` + `BelongsToTenant` + `TenantScope` | Every model except `Tenant` is scoped to the tenant in context. Querying with no tenant set **throws** `MissingTenantContextException`. Jobs get the context from the `SetTenantContext` middleware (`TenantScopedJob::tenantId()`); commands call `TenantContext::run()`. |
 | Time | `App\Support\RepClock` | All rep-local arithmetic: today, 08:00 as a UTC instant, the 30-day history window, ISO week start, the week-of-tomorrow rule, backfill weeks, DST-safe. Nothing else does timezone math. |
 | Logging | `App\Support\JobLog` | The only logger jobs and commands use. Context keys come from an allowlist; string values must look like ids/dates/enums (no `@`, no spaces). `error()` is the alert level Datadog monitors key on. |
 | Digest content | `App\Contracts\DigestBuilder` | Builds `DigestData` for a rep and local date from stored rows with a bounded number of queries. |
+| Digest mail | `App\Contracts\DigestMailer` | Hands a `DigestData` to the mail transport (implemented by the mailable module, consumed by the send job). A non-null `dataRefreshedAt` means stale. |
 | Queue routing | `config('queue.queues')` | `sync`, `digest`, `maintenance`. Jobs set their queue from config, never from a literal. |
 | Schedule | `routes/console.php` | `calendar:dispatch-sync` and `digest:dispatch-due` every minute, `meetings:purge` daily. All `onOneServer()->withoutOverlapping()` using the database cache lock store. |
 
