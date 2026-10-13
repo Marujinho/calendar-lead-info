@@ -88,7 +88,9 @@ Delivered and green in CI on `development`:
 - Laravel 13 bootstrap, Pint, Larastan level 6, PHPUnit suites, Docker (MySQL 8.4, Mailpit), GitHub Actions.
 - Domain schema (9 tenant-scoped tables), models and factories, `TenantContext` with a scope that throws when unset, the `CalendarProvider` / `CalendarProviderFactory` / `DigestBuilder` / `DigestMailer` contracts, DTOs and enums, `RepClock`, `JobLog`, the three schedule entries, 64 tests, architecture and data-model docs, ADR-0001..0006.
 
-In progress on five feature branches, merged as each passes review and CI (in this order): `feature/fake-calendar-provider`, `feature/tenant-rep-commands`, `feature/meeting-sync`, `feature/digest-builder-and-mail`, `feature/digest-scheduling-and-send`.
+All five feature branches are merged (PRs #4–#8): operator commands, fake calendar provider with metering, meeting sync/backfill/purge, digest builder and mailable, dispatch and exactly-once send. The merged tree passes Pint, Larastan level 6 and 243 tests. The PRD §18 demo was run against Mailpit: at 08:00 Europe/Lisbon only the Lisbon rep's briefing is delivered, at 08:00 America/Sao_Paulo the São Paulo reps'.
+
+Operational note: `rep:add` queues the 30-day backfill on the `sync` queue; with `QUEUE_CONNECTION=database` it runs when a `queue:work --queue=sync` worker is up (the demo's `digest:simulate` processes the current week inline, not the queued backfill).
 
 ### Tests deferred to a follow-up
 
@@ -99,4 +101,6 @@ Time-boxed delivery: the following tests are written as drafts (see `tests/Integ
 - Queue isolation under a saturated `sync` queue (NFR-1), beyond the queue-name assertions.
 - Load test (`--group=load`): 200 reps, 2 s fake latency, 5 workers, < 90 s (NFR-3).
 - PII-free log capture over a full cycle and alert-event presence (NFR-5, A09): drafted.
-- Per-module edge cases each feature branch lists under "Tests deferred" in its PR description.
+- Per-module tests not yet written are listed under "Deferred" in PRs #4 (commands), #5 (mailable rendering and mailer), #6 (fake provider, metering decorator, factory, guard), #7 (sync/backfill/purge jobs, listener, dispatch command), #8 (send job, due-rep finder, dispatch and simulate commands). PR #6 ships source without tests for most classes and must be covered before production.
+- Docs not yet written: `docs/commands.md`, `docs/calendar-provider.md` (incl. the demo expected-counts table), `docs/sync.md`, `docs/digest.md`.
+- Decisions flagged for review in PRs #6 (A02 guard runs at factory construction, not boot), #7 (backfill-today skips the day's sync; attendee removal keeps the link) and #8 (retry of a `sending` row with a recorded transport failure).
